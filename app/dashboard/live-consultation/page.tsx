@@ -62,7 +62,7 @@ export default function LiveConsultationPage() {
     
     // Extract the greeting from the MEDICAL_SYSTEM_PROMPT
     // The system prompt contains the exact greeting text
-    const aiGreeting = "Hi, hello! I'm glad you reached out. Tell me, what's been bothering you lately?";
+    const aiGreeting = "Thank you for calling Onestep Agent. This is onestep team, your ai consultation assistant. How may I help you today?";
     
     await speakText(aiGreeting);
     addMessage("assistant", aiGreeting);
