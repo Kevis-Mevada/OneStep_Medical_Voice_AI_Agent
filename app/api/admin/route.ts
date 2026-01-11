@@ -1,13 +1,26 @@
 import { NextResponse } from "next/server";
-import { getAllUsersAdmin, getAllConsultationsAdmin, getConsultationStatsAdmin } from "@/lib/firestore-admin";
+import { getAllUsersAdmin, getAllConsultationsAdmin, getConsultationStatsAdmin, getUserProfileAdmin } from "@/lib/firestore-admin";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const type = searchParams.get("type");
+  const userId = searchParams.get("userId");
 
-  // In production, verify admin role here
-  // const isAdmin = await verifyAdminRole(userId);
-  // if (!isAdmin) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  // Verify admin role for all admin API calls
+  if (!userId) {
+    return NextResponse.json({ error: "User ID required" }, { status: 400 });
+  }
+  
+  const userResult = await getUserProfileAdmin(userId);
+  if (!userResult.success || !userResult.profile) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
+  
+  // Type assertion to access role property
+  const userProfile = userResult.profile as any;
+  if (userProfile.role !== "admin") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
 
   if (type === "users") {
     const result = await getAllUsersAdmin();

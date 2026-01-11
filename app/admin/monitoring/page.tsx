@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { onAuthStateChanged, type User as FirebaseAuthUser } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -15,16 +17,23 @@ interface Consultation {
 
 export default function AdminMonitoringPage() {
   const router = useRouter();
+  const [user, setUser] = useState<FirebaseAuthUser | null>(null);
   const [consultations, setConsultations] = useState<Consultation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchConsultations();
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      if (u) {
+        fetchConsultations(u.uid);
+      }
+    });
+    return () => unsub();
   }, []);
 
-  const fetchConsultations = async () => {
+  const fetchConsultations = async (userId: string) => {
     try {
-      const response = await fetch("/api/admin?type=consultations");
+      const response = await fetch(`/api/admin?type=consultations&userId=${userId}`);
       
       if (!response.ok) {
         console.error("Failed to fetch consultations:", response.status);

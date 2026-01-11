@@ -42,6 +42,9 @@ A secure, voice-based health guidance assistant providing calm, non-diagnostic m
 - **Firebase Authentication** with Google and email/password sign-in
 - **JWT Token Validation** for secure API access
 - **Role-based Access Control** (RBAC) for admin features
+  - Admin routes require `role: "admin"` in user profile
+  - Automatic role verification in AuthGuard component
+  - Server-side role validation in admin API routes
 - **Session Management** with automatic token refresh
 
 ### Data Protection
@@ -214,7 +217,7 @@ The application will be available at `http://localhost:3000`
 - **Accuracy Disclaimer**: Information provided is for educational purposes only
 - **Emergency Protocol**: Call emergency services for urgent medical situations
 
-## 🚨 Emergency Guidelines
+### 🚨 Emergency Guidelines
 
 The system includes automatic emergency detection:
 - Monitors for critical symptom keywords
@@ -230,6 +233,12 @@ The system includes automatic emergency detection:
 - Emergency alert logging
 - User management tools
 - Platform usage analytics
+
+### Security & Access Control
+- Role-based access (admin/user)
+- Server-side role verification
+- Secure API endpoints with user validation
+- User data isolation and privacy
 
 ### Security Monitoring
 - Suspicious activity detection

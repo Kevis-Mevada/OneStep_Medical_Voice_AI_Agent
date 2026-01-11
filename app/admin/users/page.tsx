@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { onAuthStateChanged, type User as FirebaseAuthUser } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
-interface User {
+interface AppUser {
   id: string;
   email: string;
   displayName?: string;
@@ -15,16 +17,23 @@ interface User {
 
 export default function AdminUsersPage() {
   const router = useRouter();
-  const [users, setUsers] = useState<User[]>([]);
+  const [user, setUser] = useState<FirebaseAuthUser | null>(null);
+  const [users, setUsers] = useState<AppUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchUsers();
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      if (u) {
+        fetchUsers(u.uid);
+      }
+    });
+    return () => unsub();
   }, []);
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (userId: string) => {
     try {
-      const response = await fetch("/api/admin?type=users");
+      const response = await fetch(`/api/admin?type=users&userId=${userId}`);
       
       if (!response.ok) {
         console.error("Failed to fetch users:", response.status);

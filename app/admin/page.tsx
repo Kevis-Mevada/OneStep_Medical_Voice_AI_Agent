@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { onAuthStateChanged, type User as FirebaseAuthUser } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -13,16 +15,23 @@ interface Stats {
 
 export default function AdminPage() {
   const router = useRouter();
+  const [user, setUser] = useState<FirebaseAuthUser | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchStats();
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      if (u) {
+        fetchStats(u.uid);
+      }
+    });
+    return () => unsub();
   }, []);
 
-  const fetchStats = async () => {
+  const fetchStats = async (userId: string) => {
     try {
-      const response = await fetch("/api/admin?type=stats");
+      const response = await fetch(`/api/admin?type=stats&userId=${userId}`);
       
       if (!response.ok) {
         console.error("Failed to fetch stats:", response.status);
