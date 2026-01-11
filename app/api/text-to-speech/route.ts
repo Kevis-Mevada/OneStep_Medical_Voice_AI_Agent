@@ -18,6 +18,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log("Making request to ElevenLabs API with voice ID:", ELEVENLABS_VOICE_ID);
+    
     // Call ElevenLabs TTS API
     const response = await fetch(
       `https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}`,
@@ -26,6 +28,7 @@ export async function POST(request: NextRequest) {
         headers: {
           "Content-Type": "application/json",
           "xi-api-key": ELEVENLABS_API_KEY,
+          "Accept": "audio/mpeg",  // Request MP3 format
         },
         body: JSON.stringify({
           text,
@@ -40,11 +43,27 @@ export async function POST(request: NextRequest) {
       }
     );
 
+    console.log("ElevenLabs API response status:", response.status);
+
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("ElevenLabs API error:", errorText);
+      const errorText = await response.text().catch(() => 'Unknown error');
+      console.error("ElevenLabs API error:", response.status, response.statusText, errorText);
+      
+      // Check for specific error codes
+      if (response.status === 401) {
+        console.error("Authentication failed - please verify your ElevenLabs API key");
+      } else if (response.status === 403) {
+        console.error("Access forbidden - please verify your ElevenLabs subscription");
+      } else if (response.status === 404) {
+        console.error("Voice ID not found - please verify your ElevenLabs voice ID");
+      }
+      
       return NextResponse.json(
-        { error: "Failed to generate speech" },
+        { 
+          error: "Failed to generate speech", 
+          details: errorText,
+          status: response.status 
+        },
         { status: response.status }
       );
     }

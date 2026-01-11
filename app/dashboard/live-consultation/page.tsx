@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Mic, MicOff, Loader2, Volume2, AlertTriangle } from "lucide-react";
 import Image from "next/image";
+import { CONSULTATION_VOICE_PROMPT, MEDICAL_SYSTEM_PROMPT } from "@/lib/ai-prompts";
 
 type ConversationStep = 
   | "welcome"
@@ -58,10 +59,13 @@ export default function LiveConsultationPage() {
   // Start consultation with AI greeting
   const startConsultation = async () => {
     setStep("collecting-context");
-    const greeting = "Hello! I'm your AI health assistant. I'm here to listen and provide general health guidance. Before we begin, may I ask a few optional questions about you? This helps me give more personalized information. You can skip any question you're not comfortable answering.";
     
-    await speakText(greeting);
-    addMessage("assistant", greeting);
+    // Extract the greeting from the MEDICAL_SYSTEM_PROMPT
+    // The system prompt contains the exact greeting text
+    const aiGreeting = "Hi, hello! I'm glad you reached out. Tell me, what's been bothering you lately?";
+    
+    await speakText(aiGreeting);
+    addMessage("assistant", aiGreeting);
   };
 
   // Add message to conversation
@@ -80,7 +84,21 @@ export default function LiveConsultationPage() {
       });
 
       if (!response.ok) {
-        console.error("TTS failed");
+        // Get more details about the error
+        const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+        console.error("TTS failed:", response.status, errorData);
+        
+        // Fallback: use browser's built-in speech synthesis
+        if ('speechSynthesis' in window) {
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.onend = () => {
+            setIsSpeaking(false);
+          };
+          speechSynthesis.speak(utterance);
+        } else {
+          // If no fallback is available, set speaking state to false
+          setIsSpeaking(false);
+        }
         return;
       }
 
@@ -99,7 +117,16 @@ export default function LiveConsultationPage() {
       await audio.play();
     } catch (error) {
       console.error("TTS error:", error);
-      setIsSpeaking(false);
+      // Fallback to browser's speech synthesis if available
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.onend = () => {
+          setIsSpeaking(false);
+        };
+        speechSynthesis.speak(utterance);
+      } else {
+        setIsSpeaking(false);
+      }
     }
   };
 
@@ -213,7 +240,16 @@ export default function LiveConsultationPage() {
       console.error("AI response error:", error);
       const errorMsg = "I apologize, but I encountered an error. Could you please repeat that?";
       addMessage("assistant", errorMsg);
-      await speakText(errorMsg);
+      // Use fallback speech synthesis if the primary TTS fails
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(errorMsg);
+        utterance.onend = () => {
+          setIsSpeaking(false);
+        };
+        speechSynthesis.speak(utterance);
+      } else {
+        await speakText(errorMsg);
+      }
     }
   };
 
