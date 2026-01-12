@@ -246,24 +246,8 @@ The system includes automatic emergency detection:
 - User behavior analysis
 - System performance metrics
 
-## 🤝 Contributing
 
-We welcome contributions! Please follow these steps:
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
 
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🆘 Support
-
-For support, please contact the development team or open an issue in the repository.
-
----
 
 **Disclaimer**: This application provides health information for educational purposes only. It is not intended to replace professional medical advice, diagnosis, or treatment. Always seek the advice of your physician or other qualified health provider with any questions you may have regarding a medical condition or treatment.
