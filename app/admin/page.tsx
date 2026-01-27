@@ -58,7 +58,7 @@ export default function AdminPage() {
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
         <header>
           <h1 className="text-2xl font-semibold text-slate-900">Admin Dashboard</h1>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-slate-600 mt-2">
             Monitor platform usage, user activity, and AI consultations
           </p>
         </header>

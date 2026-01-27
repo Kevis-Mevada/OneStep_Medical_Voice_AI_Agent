@@ -1,5 +1,4 @@
 import { adminDb } from "./firebase-admin";
-import { FieldValue } from "firebase-admin/firestore";
 
 export interface ConsultationData {
   userId: string;
@@ -12,23 +11,41 @@ export interface ConsultationData {
   symptoms: string;
   aiResponse: string;
   report: string;
+  createdAt: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
   isEmergency?: boolean;
 }
 
-/**
- * Save consultation using Firebase Admin SDK (server-side)
- * This bypasses Firestore security rules and should only be used in API routes
- */
-export async function saveConsultationAdmin(data: ConsultationData) {
+export async function saveConsultationAdmin(data: Omit<ConsultationData, "createdAt">) {
   try {
     const docRef = await adminDb.collection("consultations").add({
       ...data,
-      createdAt: FieldValue.serverTimestamp(),
+      createdAt: FirebaseFirestore.FieldValue.serverTimestamp(),
     });
     return { success: true, id: docRef.id };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error saving consultation:", error);
-    return { success: false, error };
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getUserRecentConsultations(userId: string, limit: number = 3) {
+  try {
+    const snapshot = await adminDb
+      .collection("consultations")
+      .where("userId", "==", userId)
+      .orderBy("createdAt", "desc")
+      .limit(limit)
+      .get();
+
+    const consultations = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    return { success: true, consultations };
+  } catch (error: any) {
+    console.error("Error fetching recent consultations:", error);
+    return { success: false, error: error.message, consultations: [] };
   }
 }
 

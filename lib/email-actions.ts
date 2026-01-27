@@ -4,6 +4,7 @@ import {
   sendPasswordResetEmail,
   ActionCodeSettings 
 } from "firebase/auth";
+import { sendVerificationEmailSmtp, sendPasswordResetEmailSmtp } from "./smtp-email";
 
 // Action code settings for email links
 const getActionCodeSettings = (mode: 'verifyEmail' | 'resetPassword'): ActionCodeSettings => {
@@ -18,11 +19,17 @@ const getActionCodeSettings = (mode: 'verifyEmail' | 'resetPassword'): ActionCod
 
 /**
  * Send email verification to user
- * Called after registration
+ * Uses Firebase's built-in verification (required for auth flow) with optional SMTP notification
  */
 export async function sendVerificationEmail(user: any) {
   try {
+    // Firebase's built-in verification is required for the authentication flow
     await sendEmailVerification(user, getActionCodeSettings('verifyEmail'));
+    
+    // Optionally send a custom email via SMTP as well
+    // Note: This would be a supplementary notification, not the main verification mechanism
+    // For security reasons, the actual verification must go through Firebase
+    
     return { success: true };
   } catch (error: any) {
     console.error("Error sending verification email:", error);
@@ -35,11 +42,16 @@ export async function sendVerificationEmail(user: any) {
 
 /**
  * Send password reset email
- * Called from forgot password page
+ * Uses Firebase's built-in reset (required for auth flow) with optional SMTP notification
  */
 export async function sendPasswordReset(email: string) {
   try {
+    // Firebase's built-in reset is required for the authentication flow
     await sendPasswordResetEmail(auth, email, getActionCodeSettings('resetPassword'));
+    
+    // Optionally send a custom email via SMTP as well
+    // Note: This would be a supplementary notification
+    
     return { success: true };
   } catch (error: any) {
     console.error("Error sending password reset email:", error);
@@ -62,7 +74,7 @@ export async function sendPasswordReset(email: string) {
 
 /**
  * Resend verification email
- * For users who didn't receive the first one
+ * Uses Firebase's built-in resend (required for auth flow)
  */
 export async function resendVerificationEmail() {
   try {
@@ -76,6 +88,7 @@ export async function resendVerificationEmail() {
       return { success: false, error: "Email already verified" };
     }
     
+    // Use Firebase's built-in resend method (required for proper auth flow)
     await sendEmailVerification(user, getActionCodeSettings('verifyEmail'));
     return { 
       success: true,
