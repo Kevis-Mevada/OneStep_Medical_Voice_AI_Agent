@@ -10,6 +10,11 @@ const createTransporter = () => {
       user: process.env.EMAIL_HOST_USER,
       pass: process.env.EMAIL_HOST_PASSWORD, // Use app password for Gmail
     },
+    tls: {
+      rejectUnauthorized: false // Accept self-signed certificates
+    },
+    debug: process.env.NODE_ENV === 'development',
+    logger: process.env.NODE_ENV === 'development'
   });
 
   return transporter;
@@ -20,10 +25,23 @@ const createTransporter = () => {
  */
 export const sendSmtpEmail = async (to: string, subject: string, html: string) => {
   try {
+    // Log environment variables for debugging (remove sensitive data in production)
+    console.log('SMTP Config Check:');
+    console.log('- Host:', process.env.EMAIL_HOST);
+    console.log('- Port:', process.env.EMAIL_PORT);
+    console.log('- User:', process.env.EMAIL_HOST_USER ? '***configured***' : 'MISSING');
+    console.log('- Password:', process.env.EMAIL_HOST_PASSWORD ? '***configured***' : 'MISSING');
+    
+    if (!process.env.EMAIL_HOST_USER || !process.env.EMAIL_HOST_PASSWORD) {
+      throw new Error('Email configuration is incomplete. Missing EMAIL_HOST_USER or EMAIL_HOST_PASSWORD');
+    }
+
     const transporter = createTransporter();
 
     // Verify connection configuration
+    console.log('Verifying SMTP connection...');
     await transporter.verify();
+    console.log('SMTP connection verified successfully');
 
     const mailOptions = {
       from: process.env.EMAIL_HOST_USER,
@@ -32,14 +50,21 @@ export const sendSmtpEmail = async (to: string, subject: string, html: string) =
       html,
     };
 
+    console.log(`Sending email to: ${to}`);
     const info = await transporter.sendMail(mailOptions);
-    console.log('Email sent:', info.messageId);
+    console.log('Email sent successfully:', info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (error: any) {
-    console.error('SMTP email error:', error);
+    console.error('SMTP email error details:');
+    console.error('- Error name:', error.name);
+    console.error('- Error message:', error.message);
+    console.error('- Error code:', error.code);
+    console.error('- Stack trace:', error.stack);
+    
     return { 
       success: false, 
-      error: error.message || 'Failed to send email via SMTP' 
+      error: error.message || 'Failed to send email via SMTP',
+      errorCode: error.code
     };
   }
 };
