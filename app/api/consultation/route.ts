@@ -3,6 +3,8 @@ import { runMedicalChat } from "@/lib/groq";
 import { MEDICAL_REPORT_PROMPT } from "@/lib/ai-prompts";
 import { saveConsultationAdmin } from "@/lib/firestore-admin";
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: Request) {
   const body = await request.json();
   const { gender, age, height, weight, conditions, symptoms, userId, userEmail } = body as {

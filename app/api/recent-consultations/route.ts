@@ -3,6 +3,8 @@ import { getUserRecentConsultations } from "@/lib/firestore-admin";
 import { auth } from "@/lib/firebase";
 import { getAuth } from "firebase-admin/auth";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     // Get the authorization header
