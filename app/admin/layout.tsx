@@ -1,6 +1,6 @@
 'use client';
 
-import { AuthGuard } from "@/components/auth/AuthGuard";
+import { AuthGuard } from '@/components/auth/AuthGuard';
 
 export default function AdminLayout({
   children,
