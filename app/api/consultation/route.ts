@@ -6,25 +6,41 @@ import { saveConsultationAdmin } from "@/lib/firestore-admin";
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const { gender, age, height, weight, conditions, symptoms, userId, userEmail } = body as {
-    gender?: string;
-    age?: string;
-    height?: string;
-    weight?: string;
-    conditions?: string;
-    symptoms: string;
-    userId: string;
-    userEmail: string;
-  };
+  try {
+    const body = await request.json();
+    const { gender, age, height, weight, conditions, symptoms, userId, userEmail } = body as {
+      gender?: string;
+      age?: string;
+      height?: string;
+      weight?: string;
+      conditions?: string;
+      symptoms: string;
+      userId: string;
+      userEmail: string;
+    };
 
-  if (!userId || !userEmail) {
-    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-  }
+    // Log incoming request data for debugging
+    console.log("Consultation API request data:", { 
+      userId: userId ? "present" : "missing", 
+      userEmail: userEmail ? "present" : "missing",
+      symptoms: symptoms ? `present (${symptoms.length} chars)` : "missing"
+    });
 
-  if (!symptoms || !symptoms.trim()) {
-    return NextResponse.json({ error: "Symptoms are required" }, { status: 400 });
-  }
+    if (!userId || !userEmail) {
+      console.log("Authentication validation failed: userId or userEmail missing");
+      return NextResponse.json({ 
+        error: "Authentication required", 
+        details: "userId and userEmail are required fields" 
+      }, { status: 401 });
+    }
+
+    if (!symptoms || !symptoms.trim()) {
+      console.log("Symptoms validation failed: symptoms missing or empty");
+      return NextResponse.json({ 
+        error: "Symptoms are required", 
+        details: "Please provide symptom description" 
+      }, { status: 400 });
+    }
 
   const contextLines: string[] = [];
   if (gender) contextLines.push(`Gender: ${gender}`);
@@ -120,10 +136,17 @@ ${symptoms}`;
     console.error("Error sending report email:", emailError);
   }
 
-  return NextResponse.json({
-    message,
-    report,
-    isEmergency,
-    consultationId: saveResult.id,
-  });
+    return NextResponse.json({
+      message,
+      report,
+      isEmergency,
+      consultationId: saveResult.id,
+    });
+  } catch (error: any) {
+    console.error("Consultation API error:", error);
+    return NextResponse.json(
+      { error: error.message || "Failed to process consultation" },
+      { status: 500 }
+    );
+  }
 }

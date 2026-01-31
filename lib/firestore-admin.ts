@@ -1,4 +1,5 @@
 import { adminDb } from "./firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 
 export interface ConsultationData {
   userId: string;
@@ -11,7 +12,7 @@ export interface ConsultationData {
   symptoms: string;
   aiResponse: string;
   report: string;
-  createdAt: FirebaseFirestore.Timestamp | FirebaseFirestore.FieldValue;
+  createdAt: any;
   isEmergency?: boolean;
 }
 
@@ -19,7 +20,7 @@ export async function saveConsultationAdmin(data: Omit<ConsultationData, "create
   try {
     const docRef = await adminDb.collection("consultations").add({
       ...data,
-      createdAt: FirebaseFirestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
     });
     return { success: true, id: docRef.id };
   } catch (error: any) {

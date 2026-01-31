@@ -27,7 +27,7 @@
   <h3>AI and Voice Technologies</h3>
   <p>
     Groq API (Llama 3.3-70B), Whisper Large V3 for speech-to-text,
-    ElevenLabs API for text-to-speech
+    Web Speech API for text-to-speech
   </p>
 
   <h3>Backend and Cloud Services</h3>

@@ -301,19 +301,38 @@ export default function LiveConsultationPage() {
       // Compile conversation into symptoms
       const userMessages = messages.filter(m => m.role === "user").map(m => m.content).join(" ");
       
+      // Validate that we have user input
+      if (!userMessages || userMessages.trim().length === 0) {
+        alert("Please have a conversation with the AI assistant before generating a report. Speak about your symptoms or health concerns.");
+        setStep("conversation");
+        return;
+      }
+      
+      // Log the data being sent
+      const requestData = {
+        ...userContext,
+        symptoms: userMessages,
+        userId: user.uid,
+        userEmail: user.email,
+      };
+      
+      console.log("Sending consultation data:", {
+        userId: requestData.userId,
+        userEmail: requestData.userEmail,
+        symptomsLength: requestData.symptoms?.length || 0,
+        hasSymptoms: !!requestData.symptoms,
+        userContext: userContext
+      });
+      
       const response = await fetch("/api/consultation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...userContext,
-          symptoms: userMessages,
-          userId: user.uid,
-          userEmail: user.email,
-        }),
+        body: JSON.stringify(requestData),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to generate report");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to generate report (${response.status})`);
       }
 
       const contentType = response.headers.get("content-type");
@@ -354,9 +373,20 @@ export default function LiveConsultationPage() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold text-slate-900">Live AI Consultation</h1>
           {step !== "welcome" && step !== "complete" && (
-            <Button variant="outline" onClick={endConsultation}>
-              End & Generate Report
-            </Button>
+            <div className="flex flex-col items-end gap-2">
+              <Button 
+                variant="outline" 
+                onClick={endConsultation}
+                disabled={messages.filter(m => m.role === "user").length === 0}
+              >
+                End & Generate Report
+              </Button>
+              {messages.filter(m => m.role === "user").length === 0 && (
+                <p className="text-xs text-slate-500">
+                  Have a conversation first to generate a meaningful report
+                </p>
+              )}
+            </div>
           )}
         </div>
 

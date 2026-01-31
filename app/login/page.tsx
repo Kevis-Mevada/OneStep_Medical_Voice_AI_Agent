@@ -45,20 +45,34 @@ export default function LoginPage() {
     try {
       setIsLoading(true);
       setError(null);
-      const credential = await signInWithPopup(auth, googleProvider);
+      
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Sign-in timeout')), 30000)
+      );
+      
+      const credential = await Promise.race([
+        signInWithPopup(auth, googleProvider),
+        timeoutPromise
+      ]) as any;
+      
       const user = credential.user;
 
       // Google accounts are automatically verified
       router.push("/dashboard");
     } catch (err: any) {
-      console.error(err);
+      console.error("Google sign-in error:", err);
       
-      // Handle popup closed by user (not a critical error)
+      // Handle popup closed by user (most common case)
       if (err?.code === "auth/popup-closed-by-user") {
-        setError("Sign-in cancelled. Please try again if you'd like to continue.");
+        setError("Sign-in window was closed. Please click the button again to continue.");
       } else if (err?.code === "auth/cancelled-popup-request") {
-        // User closed popup or opened another one
+        // User closed popup or opened another one - silently ignore
         setError(null);
+      } else if (err?.message?.includes('timeout')) {
+        setError("Sign-in took too long. Please try again.");
+      } else if (err?.code === "auth/network-request-failed") {
+        setError("Network error. Please check your connection and try again.");
       } else {
         setError(err?.message ?? "Unable to sign in with Google. Please try again.");
       }
@@ -114,6 +128,10 @@ export default function LoginPage() {
               <span className="bg-white px-2 text-slate-500">Or continue with</span>
             </div>
           </div>
+          
+          <p className="text-xs text-center text-slate-500 mb-2">
+            Tip: Keep the sign-in window open until you complete the process
+          </p>
 
           <Button
             type="button"

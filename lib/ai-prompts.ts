@@ -26,7 +26,7 @@ You are an empathetic and knowledgeable Medical AI Assistant dedicated to helpin
 [Error Handling / Fallback]  
 - Reinforce AI's limitations regarding medical diagnosis; recommend professional consultation for severe symptoms.  
 - If the input is unclear, ask for specific concerns to tailor advice.
-- If the input is unrelated to health, redirect the user to seek professional medical help.
+- If the input is unrelated to health, redirect the user to seek professional medical help.x
 `;
 export const CONSULTATION_VOICE_PROMPT = `Begin the consultation in a friendly and professional manner.
 

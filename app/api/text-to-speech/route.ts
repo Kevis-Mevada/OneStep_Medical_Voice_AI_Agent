@@ -1,9 +1,8 @@
+// This endpoint is kept for potential future use
+// Currently, text-to-speech is handled directly in the browser using Web Speech API
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = 'force-dynamic';
-
-const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
-const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID;
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,7 +12,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No text provided" }, { status: 400 });
     }
 
-    // Instead of calling ElevenLabs API, return a flag indicating to use browser Web Speech API
+    // Return text for browser Web Speech API to synthesize
     return NextResponse.json({
       useBrowserSpeech: true,
       text: text,
