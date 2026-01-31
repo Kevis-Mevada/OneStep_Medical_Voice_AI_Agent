@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, type User } from "firebase/auth";
+import { getIdToken } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -12,6 +13,8 @@ import { CONSULTATION_VOICE_PROMPT, MEDICAL_SYSTEM_PROMPT } from "@/lib/ai-promp
 
 type ConversationStep = 
   | "welcome"
+  | "check-previous"
+  | "problem-resolution"
   | "collecting-context"
   | "symptoms"
   | "conversation"
@@ -24,6 +27,13 @@ interface Message {
   timestamp: Date;
 }
 
+interface RecentConsultation {
+  id: string;
+  symptoms: string;
+  createdAt: any;
+  report: string;
+}
+
 export default function LiveConsultationPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
@@ -34,6 +44,8 @@ export default function LiveConsultationPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentTranscript, setCurrentTranscript] = useState("");
   const [isEmergency, setIsEmergency] = useState(false);
+  const [recentConsultations, setRecentConsultations] = useState<RecentConsultation[]>([]);
+  const [checkingPrevious, setCheckingPrevious] = useState(true);
 
   // User context
   const [userContext, setUserContext] = useState({
@@ -52,20 +64,71 @@ export default function LiveConsultationPage() {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
+      if (u) {
+        checkRecentConsultations(u);
+      }
     });
     return () => unsub();
   }, []);
 
+  // Check for recent consultations
+  const checkRecentConsultations = async (user: User) => {
+    try {
+      const token = await getIdToken(user);
+      const response = await fetch("/api/recent-consultations", {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.consultations && data.consultations.length > 0) {
+          setRecentConsultations(data.consultations);
+        }
+      }
+    } catch (error) {
+      console.error("Error checking recent consultations:", error);
+    } finally {
+      setCheckingPrevious(false);
+    }
+  };
+
   // Start consultation with AI greeting
   const startConsultation = async () => {
-    setStep("collecting-context");
+    if (recentConsultations.length > 0) {
+      setStep("check-previous");
+      const aiGreeting = "Welcome back! I see you've had previous consultations. Let me check if your previous health concerns have been resolved. Have the issues we discussed in your last consultation been addressed?";
+      await speakText(aiGreeting);
+      addMessage("assistant", aiGreeting);
+    } else {
+      setStep("collecting-context");
+      const aiGreeting = "Thank you for calling Onestep Agent. This is onestep team, your ai consultation assistant. How may I help you today?";
+      await speakText(aiGreeting);
+      addMessage("assistant", aiGreeting);
+    }
+  };
+
+  // Handle problem resolution response
+  const handleProblemResolution = async (userResponse: string) => {
+    const lowerResponse = userResponse.toLowerCase();
     
-    // Extract the greeting from the MEDICAL_SYSTEM_PROMPT
-    // The system prompt contains the exact greeting text
-    const aiGreeting = "Thank you for calling Onestep Agent. This is onestep team, your ai consultation assistant. How may I help you today?";
-    
-    await speakText(aiGreeting);
-    addMessage("assistant", aiGreeting);
+    if (lowerResponse.includes('yes') || lowerResponse.includes('resolved') || lowerResponse.includes('better')) {
+      const response = "That's great to hear! Would you like to discuss any new health concerns, or is there anything else I can help you with today?";
+      await speakText(response);
+      addMessage("assistant", response);
+      setStep("collecting-context");
+    } else if (lowerResponse.includes('no') || lowerResponse.includes('not resolved') || lowerResponse.includes('still') || lowerResponse.includes('worse')) {
+      const response = "I understand. Let's continue discussing your ongoing concerns. Could you please describe your current symptoms?";
+      await speakText(response);
+      addMessage("assistant", response);
+      setStep("collecting-context");
+    } else {
+      // Unclear response, ask again
+      const response = "I didn't quite understand. Has your previous health issue been resolved? Please answer with yes or no.";
+      await speakText(response);
+      addMessage("assistant", response);
+    }
   };
 
   // Add message to conversation
@@ -73,60 +136,39 @@ export default function LiveConsultationPage() {
     setMessages((prev) => [...prev, { role, content, timestamp: new Date() }]);
   };
 
-  // Text-to-speech using ElevenLabs
+  // Text-to-speech using browser's Web Speech API
   const speakText = async (text: string) => {
     try {
       setIsSpeaking(true);
-      const response = await fetch("/api/text-to-speech", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-
-      if (!response.ok) {
-        // Get more details about the error
-        const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
-        console.error("TTS failed:", response.status, errorData);
-        
-        // Fallback: use browser's built-in speech synthesis
-        if ('speechSynthesis' in window) {
-          const utterance = new SpeechSynthesisUtterance(text);
-          utterance.onend = () => {
-            setIsSpeaking(false);
-          };
-          speechSynthesis.speak(utterance);
-        } else {
-          // If no fallback is available, set speaking state to false
-          setIsSpeaking(false);
-        }
-        return;
-      }
-
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-
-      // Play audio
-      const audio = new Audio(audioUrl);
-      audioRef.current = audio;
       
-      audio.onended = () => {
-        setIsSpeaking(false);
-        URL.revokeObjectURL(audioUrl);
-      };
-
-      await audio.play();
-    } catch (error) {
-      console.error("TTS error:", error);
-      // Fallback to browser's speech synthesis if available
+      // Check if browser supports Web Speech API
       if ('speechSynthesis' in window) {
+        // Cancel any ongoing speech
+        if (window.speechSynthesis.speaking) {
+          window.speechSynthesis.cancel();
+        }
+        
         const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.0; // Normal speed
+        utterance.pitch = 1.0; // Normal pitch
+        utterance.volume = 1.0; // Normal volume
+        
         utterance.onend = () => {
           setIsSpeaking(false);
         };
-        speechSynthesis.speak(utterance);
+        
+        utterance.onerror = () => {
+          setIsSpeaking(false);
+        };
+        
+        window.speechSynthesis.speak(utterance);
       } else {
+        console.warn("Web Speech API not supported in this browser");
         setIsSpeaking(false);
       }
+    } catch (error) {
+      console.error("Browser speech synthesis error:", error);
+      setIsSpeaking(false);
     }
   };
 
@@ -190,8 +232,13 @@ export default function LiveConsultationPage() {
       setCurrentTranscript(text);
       addMessage("user", text);
 
-      // Get AI response
-      await getAIResponse(text);
+      // Handle different conversation steps
+      if (step === "check-previous" || step === "problem-resolution") {
+        await handleProblemResolution(text);
+      } else {
+        // Get AI response for normal conversation
+        await getAIResponse(text);
+      }
     } catch (error) {
       console.error("Audio processing error:", error);
       alert("Failed to process audio. Please try again.");
@@ -240,16 +287,7 @@ export default function LiveConsultationPage() {
       console.error("AI response error:", error);
       const errorMsg = "I apologize, but I encountered an error. Could you please repeat that?";
       addMessage("assistant", errorMsg);
-      // Use fallback speech synthesis if the primary TTS fails
-      if ('speechSynthesis' in window) {
-        const utterance = new SpeechSynthesisUtterance(errorMsg);
-        utterance.onend = () => {
-          setIsSpeaking(false);
-        };
-        speechSynthesis.speak(utterance);
-      } else {
-        await speakText(errorMsg);
-      }
+      await speakText(errorMsg);
     }
   };
 
@@ -297,6 +335,17 @@ export default function LiveConsultationPage() {
       setStep("conversation"); // Go back to conversation on error
     }
   };
+
+  if (checkingPrevious) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F8FAFC]">
+        <div className="text-center">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-[#0F766E]" />
+          <p className="mt-2 text-slate-600">Checking your consultation history...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#F8FAFC] to-[#E0F2FE] px-4 py-6">
@@ -351,6 +400,91 @@ export default function LiveConsultationPage() {
               </Button>
               <p className="text-xs text-slate-500">
                 This assistant provides general health information only and does not replace medical advice.
+              </p>
+            </div>
+          </Card>
+        )}
+
+        {/* Previous Consultation Check */}
+        {(step === "check-previous" || step === "problem-resolution") && (
+          <Card className="p-6">
+            <div className="flex items-center gap-4">
+              <div className="relative h-16 w-16">
+                <Image
+                  src="/Agent.jpeg"
+                  alt="AI Assistant"
+                  fill
+                  className="rounded-full object-cover"
+                />
+                {isSpeaking && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="h-20 w-20 animate-ping rounded-full bg-[#0F766E] opacity-30"></div>
+                  </div>
+                )}
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-slate-900">AI Health Assistant</h3>
+                <p className="text-sm text-slate-600">
+                  {isSpeaking ? "Speaking..." : isListening ? "Listening..." : isProcessing ? "Processing..." : "Ready to listen"}
+                </p>
+              </div>
+              {isSpeaking && <Volume2 className="h-6 w-6 animate-pulse text-[#0F766E]" />}
+            </div>
+            
+            {/* Conversation Messages */}
+            <Card className="mt-4 max-h-64 overflow-y-auto p-4">
+              <div className="space-y-4">
+                {messages.map((msg, idx) => (
+                  <div
+                    key={idx}
+                    className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                  >
+                    <div
+                      className={`max-w-[80%] rounded-lg px-4 py-2 ${
+                        msg.role === "user"
+                          ? "bg-[#0F766E] text-white"
+                          : "bg-slate-100 text-slate-900"
+                      }`}
+                    >
+                      <p className="text-sm">{msg.content}</p>
+                    </div>
+                  </div>
+                ))}
+                {currentTranscript && (
+                  <div className="flex justify-end">
+                    <div className="max-w-[80%] rounded-lg bg-[#0F766E] px-4 py-2 text-white opacity-50">
+                      <p className="text-sm">{currentTranscript}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            {/* Voice Control Button */}
+            <div className="mt-4 flex flex-col items-center gap-4">
+              <button
+                type="button"
+                onClick={isListening ? stopRecording : startRecording}
+                disabled={isSpeaking || isProcessing}
+                className={`relative flex h-20 w-20 items-center justify-center rounded-full shadow-lg transition-all ${
+                  isListening
+                    ? "bg-[#DC2626] hover:bg-[#B91C1C]"
+                    : "bg-[#0F766E] hover:bg-[#0D6560]"
+                } ${(isSpeaking || isProcessing) ? "cursor-not-allowed opacity-50" : ""}`}
+              >
+                {isProcessing ? (
+                  <Loader2 className="h-8 w-8 animate-spin text-white" />
+                ) : isListening ? (
+                  <>
+                    <MicOff className="h-8 w-8 text-white" />
+                    <div className="absolute inset-0 animate-ping rounded-full bg-[#DC2626] opacity-30"></div>
+                  </>
+                ) : (
+                  <Mic className="h-8 w-8 text-white" />
+                )}
+              </button>
+              <p className="text-sm font-medium text-slate-700">
+                {isListening ? "Tap to stop recording" : isSpeaking ? "AI is speaking..." : isProcessing ? "Processing..." : "Tap to speak"}
               </p>
             </div>
           </Card>
@@ -470,7 +604,7 @@ export default function LiveConsultationPage() {
               </div>
               <h2 className="text-xl font-semibold text-slate-900">Consultation Complete</h2>
               <p className="text-sm text-slate-600">
-                Your report has been generated and saved. Redirecting you to view it...
+                Your report has been generated and sent to your email. Redirecting you to view it...
               </p>
             </div>
           </Card>

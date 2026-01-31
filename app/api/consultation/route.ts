@@ -3,6 +3,8 @@ import { runMedicalChat } from "@/lib/groq";
 import { MEDICAL_REPORT_PROMPT } from "@/lib/ai-prompts";
 import { saveConsultationAdmin } from "@/lib/firestore-admin";
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: Request) {
   const body = await request.json();
   const { gender, age, height, weight, conditions, symptoms, userId, userEmail } = body as {
@@ -93,6 +95,29 @@ ${symptoms}`;
 
   if (!saveResult.success) {
     console.error("Failed to save consultation:", saveResult.error);
+  }
+
+  // Automatically send report via email
+  try {
+    const emailResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/send-report`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userEmail,
+        report,
+        symptoms,
+        userContext: { gender, age, height, weight, conditions }
+      })
+    });
+
+    const emailResult = await emailResponse.json();
+    if (!emailResult.success) {
+      console.error("Failed to send report email:", emailResult.error);
+    }
+  } catch (emailError) {
+    console.error("Error sending report email:", emailError);
   }
 
   return NextResponse.json({

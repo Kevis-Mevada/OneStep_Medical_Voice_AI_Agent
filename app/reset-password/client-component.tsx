@@ -1,37 +1,55 @@
 'use client';
 
 import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-export default function ForgotPasswordPage() {
+export function ResetPasswordClientComponent() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const searchParams = useSearchParams();
+  const email = searchParams.get('email') || '';
+  
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const handleSubmit = async (event: FormEvent) => {
+  const handleInitiateReset = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
-    setMessage(null);
 
-    if (!email || !email.trim()) {
-      setError("Please enter your email address.");
+    if (!email) {
+      setError("Email is required to initiate password reset.");
       return;
     }
 
     try {
       setIsLoading(true);
       
-      // Redirect to reset password page with email
-      router.push(`/reset-password?email=${encodeURIComponent(email)}`);
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          action: 'initiate-reset'
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setMessage(data.message);
+      } else {
+        setError(data.error || "Failed to initiate password reset. Please try again.");
+      }
     } catch (err: any) {
-      console.error(err);
+      console.error("Reset password error:", err);
       setError("An unexpected error occurred. Please try again.");
+    } finally {
       setIsLoading(false);
     }
   };
@@ -42,19 +60,19 @@ export default function ForgotPasswordPage() {
         <CardHeader>
           <CardTitle>Reset your password</CardTitle>
           <CardDescription>
-            Enter your email to receive password reset instructions.
+            Enter your email to receive instructions to reset your password.
           </CardDescription>
         </CardHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        
+        <form onSubmit={handleInitiateReset} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email-display">Email</Label>
             <Input
-              id="email"
+              id="email-display"
               type="email"
-              required
-              autoComplete="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              readOnly
+              disabled
             />
           </div>
 
@@ -62,24 +80,23 @@ export default function ForgotPasswordPage() {
           {message && <p className="text-sm text-[#16A34A]">{message}</p>}
 
           <Button type="submit" fullWidth disabled={isLoading}>
-            {isLoading ? "Processing..." : "Continue"}
+            {isLoading ? "Processing..." : "Send Reset Instructions"}
           </Button>
 
           <p className="mt-2 text-center text-sm text-slate-600">
-            Remembered your password?{" "}
             <button
               type="button"
-              onClick={() => router.push("/login")}
+              onClick={() => router.push("/forgot-password")}
               className="font-medium text-[#2563EB] hover:underline"
             >
-              Back to login
+              Back to forgot password
             </button>
           </p>
-
-          <p className="mt-4 text-xs text-slate-500">
-            You will receive a password reset link in your email. This link will be sent securely from Firebase.
-          </p>
         </form>
+
+        <p className="mt-4 text-xs text-slate-500 px-6 pb-6">
+          You will receive a password reset link in your email. This link will be sent securely from Firebase.
+        </p>
       </Card>
     </div>
   );

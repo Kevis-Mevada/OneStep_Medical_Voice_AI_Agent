@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
 import { MEDICAL_SYSTEM_PROMPT } from "@/lib/ai-prompts";
 
+export const dynamic = 'force-dynamic';
+
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
