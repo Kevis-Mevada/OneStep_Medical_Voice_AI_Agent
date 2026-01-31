@@ -373,20 +373,13 @@ export default function LiveConsultationPage() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold text-slate-900">Live AI Consultation</h1>
           {step !== "welcome" && step !== "complete" && (
-            <div className="flex flex-col items-end gap-2">
-              <Button 
-                variant="outline" 
-                onClick={endConsultation}
-                disabled={messages.filter(m => m.role === "user").length === 0}
-              >
-                End & Generate Report
-              </Button>
-              {messages.filter(m => m.role === "user").length === 0 && (
-                <p className="text-xs text-slate-500">
-                  Have a conversation first to generate a meaningful report
-                </p>
-              )}
-            </div>
+            <Button 
+              variant="outline" 
+              onClick={endConsultation}
+              disabled={messages.filter(m => m.role === "user").length === 0}
+            >
+              End & Generate Report
+            </Button>
           )}
         </div>
 

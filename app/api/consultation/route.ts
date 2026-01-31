@@ -19,27 +19,12 @@ export async function POST(request: Request) {
       userEmail: string;
     };
 
-    // Log incoming request data for debugging
-    console.log("Consultation API request data:", { 
-      userId: userId ? "present" : "missing", 
-      userEmail: userEmail ? "present" : "missing",
-      symptoms: symptoms ? `present (${symptoms.length} chars)` : "missing"
-    });
-
     if (!userId || !userEmail) {
-      console.log("Authentication validation failed: userId or userEmail missing");
-      return NextResponse.json({ 
-        error: "Authentication required", 
-        details: "userId and userEmail are required fields" 
-      }, { status: 401 });
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
 
     if (!symptoms || !symptoms.trim()) {
-      console.log("Symptoms validation failed: symptoms missing or empty");
-      return NextResponse.json({ 
-        error: "Symptoms are required", 
-        details: "Please provide symptom description" 
-      }, { status: 400 });
+      return NextResponse.json({ error: "Symptoms are required" }, { status: 400 });
     }
 
   const contextLines: string[] = [];
@@ -115,6 +100,9 @@ ${symptoms}`;
 
   // Automatically send report via email
   try {
+    console.log("Attempting to send report email to:", userEmail);
+    console.log("Using NEXT_PUBLIC_APP_URL:", process.env.NEXT_PUBLIC_APP_URL);
+    
     const emailResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/send-report`, {
       method: 'POST',
       headers: {
@@ -128,9 +116,14 @@ ${symptoms}`;
       })
     });
 
+    console.log("Email API response status:", emailResponse.status);
     const emailResult = await emailResponse.json();
+    console.log("Email API response:", emailResult);
+    
     if (!emailResult.success) {
       console.error("Failed to send report email:", emailResult.error);
+    } else {
+      console.log("✅ Report email sent successfully");
     }
   } catch (emailError) {
     console.error("Error sending report email:", emailError);
